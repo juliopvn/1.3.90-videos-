@@ -198,7 +198,41 @@ de `PROMT.md`.
 
 ---
 
-## 6. Estado del proyecto
+## 6. Troubleshooting en producción (Cloudflare R2)
+
+Si `POST /api/videos/presign-upload` devuelve `502` en producción, la causa
+casi segura es que el R2 API Token no tiene permiso para las operaciones de
+**administración de bucket** (`HeadBucket`, `CreateBucket`,
+`PutBucketCors`) que `ensureBucket()` intenta al vuelo en
+`lib/s3/client.ts` — un token con scope solo "Object Read & Write" no
+alcanza para esas tres llamadas, aunque sí basta para firmar URLs
+prefirmadas (eso es criptografía local, no pega contra la red).
+
+Desde el commit que añadió este apartado, `ensureBucket()` ya no deja que
+un fallo en `CreateBucket`/`PutBucketCors` tumbe la respuesta: si fallan,
+solo se loggea un `console.warn` (revísalo en Vercel → el deployment →
+Runtime Logs) y la URL prefirmada se genera igual. Si sigues viendo 502:
+
+1. Revisa los Runtime Logs de la función en Vercel — el `console.error`
+   de `app/api/videos/presign-upload/route.ts` imprime el error real del
+   SDK de AWS antes de devolver 502.
+2. Si el log menciona `HeadBucket`/`CreateBucket`/`PutBucketCors` con un
+   403/`AccessDenied`: ve a Cloudflare → R2 → Manage R2 API Tokens y
+   recrea el token con permiso **Admin Read & Write** (no solo "Object
+   Read & Write"), o configura CORS manualmente desde el dashboard del
+   bucket (Settings → CORS Policy) como alternativa — no bloquea el resto.
+3. Si el error es otro (credenciales, endpoint, región), revisa que las
+   env vars en Vercel coincidan exactamente con las de la Fase 13 de
+   `PROMT.md` (`RUSTFS_REGION=auto`, endpoint
+   `https://<ACCOUNT_ID>.r2.cloudflarestorage.com`, etc.).
+
+La política CORS que la app intenta aplicar usa `AllowedHeaders` explícitos
+(`content-type`, `range`) en vez de `"*"` porque R2 no respeta el wildcard
+de forma fiable en algunos casos reportados por la comunidad.
+
+---
+
+## 7. Estado del proyecto
 
 Ver `PROMT.md` para la descripción completa de cada fase.
 

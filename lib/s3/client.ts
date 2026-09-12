@@ -62,28 +62,54 @@ export function ensureBucket(): Promise<void> {
 async function createBucketIfMissing(): Promise<void> {
   const client = getS3Client();
   const bucket = env.rustfsBucket();
-  try {
-    await client.send(new HeadBucketCommand({ Bucket: bucket }));
-  } catch {
-    await client.send(new CreateBucketCommand({ Bucket: bucket }));
+
+  const exists = await client
+    .send(new HeadBucketCommand({ Bucket: bucket }))
+    .then(() => true)
+    .catch(() => false);
+
+  if (!exists) {
+    // Si otro request ganó la carrera y ya lo creó (o el proveedor no deja
+    // recrear un bucket con el mismo nombre), no lo tratamos como fatal:
+    // lo que importa es que exista, no quién lo creó.
+    await client.send(new CreateBucketCommand({ Bucket: bucket })).catch((error) => {
+      console.warn(`[s3] CreateBucket para "${bucket}" falló (¿ya existía?): ${String(error)}`);
+    });
   }
 
-  await client.send(
-    new PutBucketCorsCommand({
-      Bucket: bucket,
-      CORSConfiguration: {
-        CORSRules: [
-          {
-            AllowedOrigins: [env.appUrl()],
-            AllowedMethods: ["GET", "PUT", "HEAD"],
-            AllowedHeaders: ["*"],
-            ExposeHeaders: ["ETag"],
-            MaxAgeSeconds: 3000,
-          },
-        ],
-      },
-    })
-  );
+  // Algunos proveedores S3-compatible (p. ej. Cloudflare R2) no exponen
+  // PutBucketCors por la API S3 y requieren configurarlo desde su propio
+  // dashboard/CLI. No dejamos que eso tumbe la generación de la URL
+  // prefirmada: si falla, solo avisamos — el bucket puede ya tener CORS
+  // configurado manualmente (ver Fase 13 / AGENTS.md).
+  try {
+    await client.send(
+      new PutBucketCorsCommand({
+        Bucket: bucket,
+        CORSConfiguration: {
+          CORSRules: [
+            {
+              AllowedOrigins: [env.appUrl()],
+              AllowedMethods: ["GET", "PUT", "HEAD"],
+              // Explícitos a propósito: algunos proveedores S3-compatible
+              // (Cloudflare R2 incluido) no respetan el wildcard "*" en
+              // AllowedHeaders de forma fiable. "content-type" lo manda el
+              // PUT de subida; "range" lo manda el <video> al hacer seek.
+              AllowedHeaders: ["content-type", "range"],
+              ExposeHeaders: ["ETag"],
+              MaxAgeSeconds: 3000,
+            },
+          ],
+        },
+      })
+    );
+  } catch (error) {
+    console.warn(
+      `[s3] no se pudo aplicar CORS automáticamente al bucket "${bucket}" (el proveedor puede no ` +
+        `soportar PutBucketCors por API S3). Configúralo manualmente si la subida/reproducción falla ` +
+        `por CORS en el navegador. Detalle: ${String(error)}`
+    );
+  }
 }
 
 export async function createUploadUrl(key: string, contentType: string): Promise<string> {
