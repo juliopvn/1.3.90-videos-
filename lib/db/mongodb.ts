@@ -10,7 +10,6 @@ import { env } from "@/lib/env";
  * proceso, o serverless con cold start) basta una promesa por proceso.
  */
 declare global {
-  // eslint-disable-next-line no-var
   var _mongoClientPromise: Promise<MongoClient> | undefined;
 }
 

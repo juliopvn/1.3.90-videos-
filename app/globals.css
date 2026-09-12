@@ -1,26 +1,135 @@
 @import "tailwindcss";
 
+/*
+ * VideoVault — identidad "archivo/vault analógico".
+ * Paleta cálida casi-negra con acentos latón (brass) y verde-cinta (tape),
+ * tipografía Fraunces (display) + IBM Plex Sans (cuerpo) + IBM Plex Mono
+ * (metadatos/timecodes). El motivo de "ficha de depósito" con borde
+ * perforado es el elemento firma de la app.
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --color-vault-950: #100d09;
+  --color-vault-900: #1b160f;
+  --color-vault-850: #221b12;
+  --color-vault-800: #2a2216;
+  --color-line-700: #453a27;
+  --color-line-600: #5a4c34;
+  --color-ink-100: #f4ecda;
+  --color-ink-300: #cdc0a3;
+  --color-ink-400: #a1937a;
+  --color-brass-300: #e6c98a;
+  --color-brass-400: #d9ae63;
+  --color-brass-500: #c99a46;
+  --color-brass-600: #a97f36;
+  --color-tape-400: #6bbab4;
+  --color-tape-500: #4fa6a0;
+  --color-rust-400: #d97148;
+  --color-rust-500: #c1552e;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-vault-950: var(--color-vault-950);
+  --color-vault-900: var(--color-vault-900);
+  --color-vault-850: var(--color-vault-850);
+  --color-vault-800: var(--color-vault-800);
+  --color-line-700: var(--color-line-700);
+  --color-line-600: var(--color-line-600);
+  --color-ink-100: var(--color-ink-100);
+  --color-ink-300: var(--color-ink-300);
+  --color-ink-400: var(--color-ink-400);
+  --color-brass-300: var(--color-brass-300);
+  --color-brass-400: var(--color-brass-400);
+  --color-brass-500: var(--color-brass-500);
+  --color-brass-600: var(--color-brass-600);
+  --color-tape-400: var(--color-tape-400);
+  --color-tape-500: var(--color-tape-500);
+  --color-rust-400: var(--color-rust-400);
+  --color-rust-500: var(--color-rust-500);
+
+  --font-display: var(--font-fraunces);
+  --font-sans: var(--font-plex-sans);
+  --font-mono: var(--font-plex-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  border-color: var(--color-line-700);
+}
+
+html {
+  color-scheme: dark;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-vault-950);
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(201, 154, 70, 0.08), transparent),
+    repeating-linear-gradient(
+      0deg,
+      rgba(0, 0, 0, 0.12) 0px,
+      rgba(0, 0, 0, 0.12) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+  color: var(--color-ink-100);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--color-brass-500);
+  color: var(--color-vault-950);
+}
+
+/* Foco visible consistente en toda la app */
+:focus-visible {
+  outline: 2px solid var(--color-brass-400);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* --- Motivo firma: ficha de depósito con canto perforado --- */
+.ticket {
+  position: relative;
+  background: var(--color-vault-900);
+  border: 1px solid var(--color-line-700);
+  border-radius: 4px;
+}
+
+.ticket::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 0;
+  border-top: 1px dashed var(--color-line-600);
+  top: var(--ticket-perforation-y, 3.25rem);
+}
+
+.ticket-serial {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.08em;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .stamp-in {
+    animation: stamp-in 420ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+}
+
+@keyframes stamp-in {
+  from {
+    opacity: 0;
+    transform: scale(1.02) translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Contador mecánico para el dashboard */
+.tally {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
 }

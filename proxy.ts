@@ -5,7 +5,7 @@ import { verifySession } from "@/lib/auth/jwt";
 const PROTECTED_PAGE_PREFIXES = ["/dashboard", "/videos"];
 const PROTECTED_API_PREFIXES = ["/api/videos", "/api/dashboard"];
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   const isProtectedApi = PROTECTED_API_PREFIXES.some((prefix) => pathname.startsWith(prefix));
