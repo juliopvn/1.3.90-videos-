@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 import { Fraunces, IBM_Plex_Sans, IBM_Plex_Mono } from "next/font/google";
 import { AuthProvider } from "@/context/AuthContext";
 import { Navbar } from "@/components/Navbar";
@@ -27,7 +28,7 @@ export const metadata: Metadata = {
   description: "Tu archivo privado de vídeo: sube, etiqueta y recupera cualquier clip en segundos.",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html
       lang="es"
