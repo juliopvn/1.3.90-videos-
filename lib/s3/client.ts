@@ -2,6 +2,7 @@ import {
   S3Client,
   CreateBucketCommand,
   HeadBucketCommand,
+  PutBucketCorsCommand,
   PutObjectCommand,
   GetObjectCommand,
   DeleteObjectCommand,
@@ -37,9 +38,16 @@ export function getS3Client(): S3Client {
 let bucketEnsured: Promise<void> | null = null;
 
 /**
- * Crea el bucket si no existe. Memoizado: se invoca una vez al arrancar
- * (instrumentation.ts) y de forma defensiva antes de firmar una URL de
- * subida, por si el bucket fue borrado manualmente en local.
+ * Crea el bucket si no existe y (re)aplica su política CORS. Memoizado: se
+ * invoca una vez al arrancar (instrumentation.ts) y de forma defensiva antes
+ * de firmar una URL de subida, por si el bucket fue borrado manualmente.
+ *
+ * La política CORS es necesaria incluso en local: el navegador sirve la app
+ * en el origen de Next.js (p. ej. http://localhost:3000) y sube/reproduce
+ * contra el origen de RustFS (http://localhost:9001) — son orígenes
+ * distintos aunque compartan host, así que sin CORS el PUT/GET directo
+ * queda bloqueado por el navegador antes de llegar a RustFS. En producción
+ * (Cloudflare R2) aplica exactamente el mismo razonamiento, ver Fase 13.
  */
 export function ensureBucket(): Promise<void> {
   if (!bucketEnsured) {
@@ -59,6 +67,23 @@ async function createBucketIfMissing(): Promise<void> {
   } catch {
     await client.send(new CreateBucketCommand({ Bucket: bucket }));
   }
+
+  await client.send(
+    new PutBucketCorsCommand({
+      Bucket: bucket,
+      CORSConfiguration: {
+        CORSRules: [
+          {
+            AllowedOrigins: [env.appUrl()],
+            AllowedMethods: ["GET", "PUT", "HEAD"],
+            AllowedHeaders: ["*"],
+            ExposeHeaders: ["ETag"],
+            MaxAgeSeconds: 3000,
+          },
+        ],
+      },
+    })
+  );
 }
 
 export async function createUploadUrl(key: string, contentType: string): Promise<string> {

@@ -116,7 +116,7 @@ export default function VideoDetailPage() {
               <p className="mt-2 font-mono text-xs text-ink-400">Preparando el reproductor…</p>
             )}
             {playerState === "error" && (
-              <p role="alert" className="mt-2 text-sm text-rust-400">
+              <p role="alert" data-testid="video-player-error" className="mt-2 text-sm text-rust-400">
                 No se pudo reproducir el vídeo. La URL prefirmada puede haber caducado — recarga la página.
               </p>
             )}

@@ -70,11 +70,16 @@ export function Navbar() {
             </>
           ) : (
             <>
-              <Link href="/login" className="rounded px-3 py-1.5 text-ink-300 hover:text-ink-100">
+              <Link
+                href="/login"
+                data-testid="nav-login"
+                className="rounded px-3 py-1.5 text-ink-300 hover:text-ink-100"
+              >
                 Iniciar sesión
               </Link>
               <Link
                 href="/register"
+                data-testid="nav-register"
                 className="rounded bg-brass-500 px-3 py-1.5 font-medium text-vault-950 transition-colors hover:bg-brass-400"
               >
                 Crear cuenta
