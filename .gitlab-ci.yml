@@ -16,11 +16,26 @@
 #   - CI_JWT_SECRET: secreto de JWT para el entorno de test del pipeline
 #     (distinto del de desarrollo y del de producción).
 #
-# `tags: [cloudrun]` es obligatorio en esta instancia: el único runner
-# compartido online (cloudrun-ephemeral) tiene run_untagged=false, así que
-# un job sin esta tag se queda en "pending" para siempre (sin fallar ni
-# avisar) porque ningún runner lo recoge. Si en el futuro cambia el runner
-# disponible, ajusta esta tag (`glab api /runners` para ver cuál hay).
+# Notas sobre el runner disponible en esta instancia
+# (gitlab.codecrypto.academy), descubiertas con `glab api /runners` y
+# `glab api /runners/<id>` (sin necesitar la UI de GitLab):
+#
+# 1. `tags: [cloudrun]` es obligatorio: el único runner compartido online
+#    (cloudrun-ephemeral) tiene run_untagged=false, así que un job sin esta
+#    tag se queda en "pending" para siempre (sin fallar ni avisar) porque
+#    ningún runner lo recoge.
+# 2. Ese runner usa el executor "shell", no Docker: el campo `image:` se
+#    ignora en silencio (los jobs corren con lo que ya esté instalado en el
+#    host) y el keyword `services:` de GitLab CI no funciona en absoluto
+#    (services es una prestación del executor Docker). Por eso test:e2e
+#    levanta MongoDB/RustFS con el mismo `docker compose up -d` que en
+#    local, en vez de usar `services:`.
+# 3. El límite de subida de artifacts de esta instancia es bajo: subir
+#    node_modules/ completo como artifact falla con "413 Request Entity Too
+#    Large". Por eso cada job instala sus propias dependencias con
+#    `npm ci --prefer-offline` (rápido gracias al cache de npm_config_cache,
+#    que sí se sube sin problema) en vez de heredar node_modules/ como
+#    artifact del job install.
 
 stages:
   - install
@@ -29,7 +44,6 @@ stages:
   - build
 
 default:
-  image: node:22-bookworm
   tags:
     - cloudrun
   cache:
@@ -46,15 +60,12 @@ install:
   stage: install
   script:
     - npm ci --prefer-offline
-  artifacts:
-    paths:
-      - node_modules/
-    expire_in: 1 hour
 
 lint:
   stage: lint
   needs: ["install"]
   script:
+    - npm ci --prefer-offline
     - npm run lint
     - npm run typecheck
 
@@ -62,16 +73,16 @@ test:unit:
   stage: test
   needs: ["install"]
   script:
+    - npm ci --prefer-offline
     - npm run test:unit
 
 test:e2e:
   stage: test
   needs: ["install"]
-  image: mcr.microsoft.com/playwright:v1.63.0-jammy
   variables:
-    MONGODB_URI: "mongodb://mongodb:27017"
+    MONGODB_URI: "mongodb://localhost:27017"
     MONGODB_DB: "videovault_ci"
-    RUSTFS_ENDPOINT: "http://rustfs:9000"
+    RUSTFS_ENDPOINT: "http://localhost:9001"
     RUSTFS_ACCESS_KEY: "$CI_RUSTFS_ACCESS_KEY"
     RUSTFS_SECRET_KEY: "$CI_RUSTFS_SECRET_KEY"
     RUSTFS_BUCKET: "videos-ci"
@@ -80,20 +91,14 @@ test:e2e:
     JWT_EXPIRES_IN: "1h"
     NEXT_PUBLIC_APP_URL: "http://localhost:3000"
     NODE_ENV: "production"
-  services:
-    - name: mongo:7
-      alias: mongodb
-    - name: rustfs/rustfs:latest
-      alias: rustfs
-      command: ["/data"]
-      variables:
-        RUSTFS_ACCESS_KEY: "$CI_RUSTFS_ACCESS_KEY"
-        RUSTFS_SECRET_KEY: "$CI_RUSTFS_SECRET_KEY"
-        RUSTFS_ADDRESS: ":9000"
-        RUSTFS_CONSOLE_ENABLE: "false"
   script:
+    - npm ci --prefer-offline
+    - npx playwright install --with-deps chromium
+    - docker compose up -d
     - npm run build
     - npm run test:e2e
+  after_script:
+    - docker compose down
   artifacts:
     when: always
     paths:
@@ -104,8 +109,5 @@ build:
   stage: build
   needs: ["install"]
   script:
+    - npm ci --prefer-offline
     - npm run build
-  artifacts:
-    paths:
-      - .next/
-    expire_in: 1 day

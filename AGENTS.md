@@ -167,22 +167,43 @@ datos separada — ver el comentario al principio de cada spec.
 ### CI (GitLab)
 
 `.gitlab-ci.yml` corre `install -> lint -> test (unit + e2e) -> build` en
-cada push. El job `test:e2e` levanta MongoDB y RustFS como *services*
-efímeros y necesita dos variables de CI/CD configuradas en GitLab
-(Settings -> CI/CD -> Variables, nunca en el YAML): `CI_RUSTFS_ACCESS_KEY`,
+cada push. El job `test:e2e` levanta MongoDB y RustFS con
+`docker compose up -d` (el mismo `docker-compose.yml` que en local) y
+necesita dos variables de CI/CD configuradas en GitLab (Settings -> CI/CD
+-> Variables, nunca en el YAML): `CI_RUSTFS_ACCESS_KEY`,
 `CI_RUSTFS_SECRET_KEY` y `CI_JWT_SECRET`. El deploy a Vercel no vive en
 este pipeline — ver la nota al principio de `.gitlab-ci.yml` y la Fase 12
 de `PROMT.md`.
 
-**Si un job se queda en "pending" indefinidamente** (no "running", no
-"failed" — solo pending): casi seguro no hay ningún runner que recoja esa
-tag. En esta instancia (`gitlab.codecrypto.academy`) el único runner
-compartido online tiene `run_untagged: false` y solo acepta jobs con la
-tag `cloudrun` — por eso todos los jobs de `.gitlab-ci.yml` declaran
-`tags: [cloudrun]` en el bloque `default:`. Para diagnosticar esto en
-cualquier instancia: `glab api /runners` (lista los runners del proyecto)
-y `glab api /runners/<id>` (para ver `tag_list`, `run_untagged`, `online`,
-`status` de cada uno) — no hace falta acceso a la UI de GitLab.
+**Realidades del runner disponible en `gitlab.codecrypto.academy`**
+(descubiertas diagnosticando fallos reales, no en la documentación — si
+cambia el runner, revisa esto de nuevo):
+
+- **Si un job se queda en "pending" indefinidamente** (no "running", no
+  "failed" — solo pending): casi seguro no hay ningún runner que recoja esa
+  tag. El único runner compartido online tiene `run_untagged: false` y solo
+  acepta jobs con la tag `cloudrun` — por eso todos los jobs declaran
+  `tags: [cloudrun]` en el bloque `default:`. Diagnóstico sin UI:
+  `glab api /runners` (lista runners del proyecto) y
+  `glab api /runners/<id>` (`tag_list`, `run_untagged`, `online`, `status`).
+- **Ese runner usa el executor "shell", no Docker.** `image:` se ignora en
+  silencio — los jobs corren con lo que ya esté instalado en el host, no en
+  un contenedor aislado — y `services:` (la forma "normal" de levantar
+  Mongo/RustFS en GitLab CI) simplemente no funciona, porque es una
+  prestación exclusiva del executor Docker. Por eso `test:e2e` usa
+  `docker compose up -d` directamente en el script, igual que en local, en
+  vez de `services:`.
+- **El límite de subida de artifacts es bajo.** Subir `node_modules/`
+  completo como artifact del job `install` falla con
+  `413 Request Entity Too Large`. Por eso cada job corre su propio
+  `npm ci --prefer-offline` (rápido, gracias al cache de npm keyeado por
+  `package-lock.json`, que sí se sube sin problema) en vez de heredar
+  `node_modules/` como artifact entre jobs. Si ves un 413 en los logs de un
+  job, revisa qué `artifacts:` está intentando subir y si hace falta.
+- Diagnóstico general de un job que falla: `glab ci status` para ver el
+  pipeline más reciente, y
+  `glab api /projects/<id>/jobs/<job_id>/trace` para el log completo — no
+  hace falta abrir la UI de GitLab para depurar CI.
 
 ---
 
