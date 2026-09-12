@@ -75,6 +75,38 @@ npm run dev
 
 4. Regístrate en [http://localhost:3000](http://localhost:3000), sube un vídeo y búscalo por tag.
 
+## 🌐 Despliegue
+
+**URL pública:** [https://videovault.jpavon-tech.com](https://videovault.jpavon-tech.com)
+
+### Qué corre dónde
+
+| Servicio | Rol |
+|---|---|
+| **Vercel** | Hosting de la app Next.js (build + funciones serverless de las API routes) |
+| **Cloudflare R2** | Storage S3-compatible en producción (bucket `videovault-videos`), sustituye a RustFS sin cambios de código |
+| **MongoDB Atlas** | Base de datos en producción, sustituye al MongoDB local |
+| **Cloudflare DNS** | Resuelve `videovault.jpavon-tech.com` hacia Vercel (registro CNAME en modo "DNS only", nube gris) |
+
+### Cómo se dispara un despliegue
+
+El repositorio "fuente de la verdad" es **GitLab** (self-hosted), donde vive el pipeline de CI (`.gitlab-ci.yml`: install → lint → test unit/e2e → build). Como esa instancia de GitLab es self-hosted, Vercel no pudo conectarse a ella directamente para la integración nativa — así que el repo se **espeja a GitHub** vía [GitLab Push Mirroring](https://docs.gitlab.com/ee/user/project/repository/mirror/push.html) (Settings → Repository → Mirroring repositories), y es ese espejo en GitHub el que está conectado a Vercel:
+
+```
+git push (GitLab, origin/main)
+        │
+        ├──► GitLab CI (.gitlab-ci.yml): lint + tests + build
+        │
+        └──► push mirror automático ──► GitHub ──► Vercel detecta el push
+                                                      y despliega solo
+```
+
+Cada `git push` a `main` en GitLab dispara el pipeline de CI y, vía el mirror, un deploy automático en Vercel — sin pasos manuales.
+
+### Variables de entorno en producción
+
+Configuradas en Vercel (Project Settings → Environment Variables), con los mismos nombres que en `.env.example` pero apuntando a los servicios de producción: `RUSTFS_ENDPOINT` = `https://<ACCOUNT_ID>.r2.cloudflarestorage.com`, `RUSTFS_REGION` = `auto`, y un `JWT_SECRET` distinto al de desarrollo. Ver `.env.example` y `AGENTS.md` (sección de troubleshooting en producción) para el detalle completo.
+
 <!-- BEGIN cc:que-se-valora -->
 ¡Hola! Aquí te explico qué miraremos con lupa cuando corrijamos tu proyecto de "Videos".
 

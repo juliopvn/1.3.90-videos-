@@ -1,8 +1,11 @@
 # Pipeline de calidad para VideoVault: install -> lint -> test (unit + e2e) -> build.
 #
-# El deploy NO se hace desde aquí: el proyecto de Vercel está conectado
-# directamente al repo de GitLab (integración nativa Vercel<->GitLab), así
-# que cada push a main dispara un deploy independiente de este pipeline.
+# El deploy NO se hace desde aquí. Este GitLab es self-hosted, así que
+# Vercel no pudo conectarse a él de forma nativa: el repo se espeja a
+# GitHub vía GitLab Push Mirroring (Settings -> Repository -> Mirroring
+# repositories), y es ese espejo el que Vercel tiene conectado. Cada push a
+# main en GitLab se refleja solo en GitHub y dispara un deploy en Vercel,
+# independiente de este pipeline. Ver la sección "Despliegue" de README.md.
 # Este pipeline solo garantiza calidad antes de que ese push llegue a main.
 #
 # Variables de entorno requeridas para el job test:e2e (Settings -> CI/CD ->

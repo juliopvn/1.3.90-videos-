@@ -236,13 +236,20 @@ de forma fiable en algunos casos reportados por la comunidad.
 
 Ver `PROMT.md` para la descripción completa de cada fase.
 
-- ✅ Fases 0–12 completadas: bootstrap, env, Mongo, auth, S3/RustFS, CRUD de
+- ✅ Fases 0–13 completadas: bootstrap, env, Mongo, auth, S3/RustFS, CRUD de
   vídeos, búsqueda, reproducción, dashboard, este documento, suite E2E
-  (12/12 en verde), gate de verificación local, y `.gitlab-ci.yml`.
-- ⏳ Fase 13 (despliegue público) — requiere que el humano aporte
-  credenciales/decisiones (proyecto de Vercel, cuenta/bucket de Cloudflare
-  R2, connection string de MongoDB Atlas, JWT de producción) antes de
-  ejecutarse; no asumas esos valores, pregúntalos explícitamente.
+  (12/12 en verde), gate de verificación local, `.gitlab-ci.yml`, y
+  despliegue público en `https://videovault.jpavon-tech.com` (Vercel +
+  Cloudflare R2 + MongoDB Atlas), con el checklist de la Fase 11 repetido y
+  en verde contra producción. Ver la sección "Despliegue" de `README.md`
+  para la arquitectura real (el repo se espeja a GitHub vía GitLab Push
+  Mirroring porque el GitLab de origen es self-hosted) y la sección 6 de
+  este documento para el troubleshooting del 502/CORS que apareció al
+  desplegar contra R2 por primera vez.
+- El proyecto está funcionalmente completo según `PROMT.md`. Trabajo futuro
+  sería mantenimiento, nuevas features, o robustecer el R2 API Token a
+  scope "Admin Read & Write" para que `PutBucketCors` deje de necesitar el
+  paso manual documentado en la sección 6.
 
 Si vas a continuar el trabajo, corre `git log --oneline` y compáralo con
 las fases de `PROMT.md`: cada fase completada tiene su propio commit con
