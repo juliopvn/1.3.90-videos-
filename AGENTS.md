@@ -174,6 +174,16 @@ efímeros y necesita dos variables de CI/CD configuradas en GitLab
 este pipeline — ver la nota al principio de `.gitlab-ci.yml` y la Fase 12
 de `PROMT.md`.
 
+**Si un job se queda en "pending" indefinidamente** (no "running", no
+"failed" — solo pending): casi seguro no hay ningún runner que recoja esa
+tag. En esta instancia (`gitlab.codecrypto.academy`) el único runner
+compartido online tiene `run_untagged: false` y solo acepta jobs con la
+tag `cloudrun` — por eso todos los jobs de `.gitlab-ci.yml` declaran
+`tags: [cloudrun]` en el bloque `default:`. Para diagnosticar esto en
+cualquier instancia: `glab api /runners` (lista los runners del proyecto)
+y `glab api /runners/<id>` (para ver `tag_list`, `run_untagged`, `online`,
+`status` de cada uno) — no hace falta acceso a la UI de GitLab.
+
 ---
 
 ## 5. Reglas de seguridad

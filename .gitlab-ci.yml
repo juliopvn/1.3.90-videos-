@@ -15,6 +15,12 @@
 #     no hace falta que coincidan con las de desarrollo/producción).
 #   - CI_JWT_SECRET: secreto de JWT para el entorno de test del pipeline
 #     (distinto del de desarrollo y del de producción).
+#
+# `tags: [cloudrun]` es obligatorio en esta instancia: el único runner
+# compartido online (cloudrun-ephemeral) tiene run_untagged=false, así que
+# un job sin esta tag se queda en "pending" para siempre (sin fallar ni
+# avisar) porque ningún runner lo recoge. Si en el futuro cambia el runner
+# disponible, ajusta esta tag (`glab api /runners` para ver cuál hay).
 
 stages:
   - install
@@ -24,6 +30,8 @@ stages:
 
 default:
   image: node:22-bookworm
+  tags:
+    - cloudrun
   cache:
     key:
       files:
