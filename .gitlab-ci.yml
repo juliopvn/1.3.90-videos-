@@ -1,0 +1,100 @@
+# Pipeline de calidad para VideoVault: install -> lint -> test (unit + e2e) -> build.
+#
+# El deploy NO se hace desde aquí: el proyecto de Vercel está conectado
+# directamente al repo de GitLab (integración nativa Vercel<->GitLab), así
+# que cada push a main dispara un deploy independiente de este pipeline.
+# Este pipeline solo garantiza calidad antes de que ese push llegue a main.
+#
+# Variables de entorno requeridas para el job test:e2e (Settings -> CI/CD ->
+# Variables del proyecto en GitLab, NUNCA en texto plano en este archivo):
+#   - CI_RUSTFS_ACCESS_KEY / CI_RUSTFS_SECRET_KEY: credenciales para el
+#     RustFS efímero del pipeline (pueden ser cualquier valor no-default,
+#     no hace falta que coincidan con las de desarrollo/producción).
+#   - CI_JWT_SECRET: secreto de JWT para el entorno de test del pipeline
+#     (distinto del de desarrollo y del de producción).
+
+stages:
+  - install
+  - lint
+  - test
+  - build
+
+default:
+  image: node:22-bookworm
+  cache:
+    key:
+      files:
+        - package-lock.json
+    paths:
+      - .npm-cache/
+
+variables:
+  npm_config_cache: "$CI_PROJECT_DIR/.npm-cache"
+
+install:
+  stage: install
+  script:
+    - npm ci --prefer-offline
+  artifacts:
+    paths:
+      - node_modules/
+    expire_in: 1 hour
+
+lint:
+  stage: lint
+  needs: ["install"]
+  script:
+    - npm run lint
+    - npm run typecheck
+
+test:unit:
+  stage: test
+  needs: ["install"]
+  script:
+    - npm run test:unit
+
+test:e2e:
+  stage: test
+  needs: ["install"]
+  image: mcr.microsoft.com/playwright:v1.63.0-jammy
+  variables:
+    MONGODB_URI: "mongodb://mongodb:27017"
+    MONGODB_DB: "videovault_ci"
+    RUSTFS_ENDPOINT: "http://rustfs:9000"
+    RUSTFS_ACCESS_KEY: "$CI_RUSTFS_ACCESS_KEY"
+    RUSTFS_SECRET_KEY: "$CI_RUSTFS_SECRET_KEY"
+    RUSTFS_BUCKET: "videos-ci"
+    RUSTFS_REGION: "us-east-1"
+    JWT_SECRET: "$CI_JWT_SECRET"
+    JWT_EXPIRES_IN: "1h"
+    NEXT_PUBLIC_APP_URL: "http://localhost:3000"
+    NODE_ENV: "production"
+  services:
+    - name: mongo:7
+      alias: mongodb
+    - name: rustfs/rustfs:latest
+      alias: rustfs
+      command: ["/data"]
+      variables:
+        RUSTFS_ACCESS_KEY: "$CI_RUSTFS_ACCESS_KEY"
+        RUSTFS_SECRET_KEY: "$CI_RUSTFS_SECRET_KEY"
+        RUSTFS_ADDRESS: ":9000"
+        RUSTFS_CONSOLE_ENABLE: "false"
+  script:
+    - npm run build
+    - npm run test:e2e
+  artifacts:
+    when: always
+    paths:
+      - playwright-report/
+    expire_in: 7 days
+
+build:
+  stage: build
+  needs: ["install"]
+  script:
+    - npm run build
+  artifacts:
+    paths:
+      - .next/
+    expire_in: 1 day

@@ -25,8 +25,9 @@ export default defineConfig({
     screenshot: "only-on-failure",
   },
   webServer: {
-    // En CI se prueba contra el build de producción; en local, contra `next dev`.
-    command: process.env.CI ? "npm run build && npm run start" : "npm run dev",
+    // En CI el pipeline ya corrió `npm run build` como paso previo (ver
+    // .gitlab-ci.yml); aquí solo arrancamos ese build. En local, `next dev`.
+    command: process.env.CI ? "npm run start" : "npm run dev",
     url: BASE_URL,
     reuseExistingServer: !process.env.CI,
     timeout: 60_000,

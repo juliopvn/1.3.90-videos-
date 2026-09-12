@@ -75,6 +75,8 @@ lib/
 proxy.ts                protección de rutas privadas (antes "middleware.ts", ver más abajo)
 instrumentation.ts      hook de arranque: crea índices de Mongo y el bucket S3
 tests/e2e/              specs de Playwright + fixtures
+tests/unit/             tests de lógica pura (node --test)
+.gitlab-ci.yml           pipeline de CI (install/lint/test/build)
 ```
 
 ### Naming
@@ -138,11 +140,20 @@ regístrate desde `/register` y sube un vídeo desde `/videos/upload`.
 ## 4. Cómo correr los tests
 
 ```bash
-npm run typecheck   # tsc --noEmit
-npm run lint         # eslint
-npm run test:e2e     # Playwright — requiere docker compose (Mongo + RustFS) arriba
-npm run test:e2e:ui  # misma suite, en modo UI interactivo
+npm run typecheck    # tsc --noEmit
+npm run lint          # eslint
+npm run test:unit     # node --test — lógica pura (lib/format, lib/validation, lib/auth/duration)
+npm run test:e2e      # Playwright — requiere docker compose (Mongo + RustFS) arriba
+npm run test:e2e:ui   # misma suite, en modo UI interactivo
 ```
+
+Los tests unitarios (`tests/unit/*.test.ts`) usan el test runner nativo de
+Node (`node --test`), sin dependencias extra — solo cubren módulos sin
+efectos secundarios (`lib/format.ts`, `lib/validation.ts`,
+`lib/auth/duration.ts`). Verás un warning de Node sobre
+`MODULE_TYPELESS_PACKAGE_JSON` al correrlos: es cosmético (Node detecta el
+módulo como ESM al vuelo), no toca `package.json` a propósito para no
+afectar cómo Next.js/Playwright resuelven sus propios módulos.
 
 La suite E2E (`tests/e2e/*.spec.ts`, Playwright) cubre: registro/login,
 acceso protegido sin sesión, subida completa con metadatos, búsqueda por
@@ -152,6 +163,16 @@ arriba antes de correr la suite. No hay proyecto de test aislado
 (`videovault_test` / `videos-test`): los tests limpian sus propios datos
 (usuarios y vídeos con prefijo `e2e-`) en lugar de depender de una base de
 datos separada — ver el comentario al principio de cada spec.
+
+### CI (GitLab)
+
+`.gitlab-ci.yml` corre `install -> lint -> test (unit + e2e) -> build` en
+cada push. El job `test:e2e` levanta MongoDB y RustFS como *services*
+efímeros y necesita dos variables de CI/CD configuradas en GitLab
+(Settings -> CI/CD -> Variables, nunca en el YAML): `CI_RUSTFS_ACCESS_KEY`,
+`CI_RUSTFS_SECRET_KEY` y `CI_JWT_SECRET`. El deploy a Vercel no vive en
+este pipeline — ver la nota al principio de `.gitlab-ci.yml` y la Fase 12
+de `PROMT.md`.
 
 ---
 
@@ -181,15 +202,13 @@ datos separada — ver el comentario al principio de cada spec.
 
 Ver `PROMT.md` para la descripción completa de cada fase.
 
-- ✅ Fases 0–9 completadas (bootstrap, env, Mongo, auth, S3/RustFS, CRUD de
-  vídeos, búsqueda, reproducción, dashboard, este documento).
-- ⏳ Fase 10 (E2E con Playwright) — en progreso en el mismo commit que
-  añadió este archivo o inmediatamente después; revisa `tests/e2e/` y el
-  historial de `git log` para confirmar si ya está cerrada.
-- ⏳ Fases 11–13 (gate local, CI/CD en GitLab, despliegue público) — la
-  Fase 13 requiere que el humano aporte credenciales/decisiones (Vercel,
-  Cloudflare R2, MongoDB Atlas, JWT de producción) antes de ejecutarse; no
-  asumas esos valores, pregúntalos.
+- ✅ Fases 0–12 completadas: bootstrap, env, Mongo, auth, S3/RustFS, CRUD de
+  vídeos, búsqueda, reproducción, dashboard, este documento, suite E2E
+  (12/12 en verde), gate de verificación local, y `.gitlab-ci.yml`.
+- ⏳ Fase 13 (despliegue público) — requiere que el humano aporte
+  credenciales/decisiones (proyecto de Vercel, cuenta/bucket de Cloudflare
+  R2, connection string de MongoDB Atlas, JWT de producción) antes de
+  ejecutarse; no asumas esos valores, pregúntalos explícitamente.
 
 Si vas a continuar el trabajo, corre `git log --oneline` y compáralo con
 las fases de `PROMT.md`: cada fase completada tiene su propio commit con
